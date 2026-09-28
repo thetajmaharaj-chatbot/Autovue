@@ -103,16 +103,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun normalizedUri(raw: String): String {
-            val value = raw.trim()
-            if (value.isBlank()) return value
-
-            val parsed = Uri.parse(value)
-            return if (!parsed.scheme.isNullOrBlank()) value else "https://$value"
-        }
-
         fun browse() {
-            val value = normalizedUri(address.text.toString())
+            val value = normalizeInput(address.text.toString())
             if (value.isNotBlank()) web.loadUrl(value)
         }
 
@@ -164,14 +156,14 @@ class MainActivity : AppCompatActivity() {
             if (web.canGoForward()) web.goForward()
         }
         findViewById<View>(R.id.playDirect).setOnClickListener {
-            val source = normalizedUri(address.text.toString())
+            val source = normalizeInput(address.text.toString())
             if (source.isNotEmpty()) playMedia(Uri.parse(source))
         }
         findViewById<View>(R.id.openFile).setOnClickListener {
             openDocument.launch(arrayOf("audio/*", "video/*"))
         }
         findViewById<View>(R.id.saveForCar).setOnClickListener {
-            val source = normalizedUri(address.text.toString())
+            val source = normalizeInput(address.text.toString())
             if (source.isNotEmpty()) {
                 val before = SavedMediaStore.all(this).size
                 SavedMediaStore.save(this, source)
@@ -213,7 +205,61 @@ class MainActivity : AppCompatActivity() {
         })
 
         updateSavedStatus()
-        if (savedInstanceState == null) web.loadUrl(homeUrl)
+
+        val handled = handleIncomingIntent(intent)
+        if (!handled && savedInstanceState == null) {
+            web.loadUrl(homeUrl)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(incoming: Intent?): Boolean {
+        if (incoming == null) return false
+
+        return when (incoming.action) {
+            Intent.ACTION_SEND -> {
+                val sharedText = incoming.getStringExtra(Intent.EXTRA_TEXT)
+                    ?.trim()
+                    .orEmpty()
+
+                if (sharedText.isBlank()) {
+                    false
+                } else {
+                    val source = normalizeInput(sharedText)
+                    address.setText(source)
+                    web.loadUrl(source)
+                    true
+                }
+            }
+
+            Intent.ACTION_VIEW -> {
+                val uri = incoming.data ?: return false
+                address.setText(uri.toString())
+
+                val type = incoming.type.orEmpty()
+                if (type.startsWith("audio/") || type.startsWith("video/")) {
+                    playMedia(uri)
+                } else {
+                    web.loadUrl(uri.toString())
+                }
+                true
+            }
+
+            else -> false
+        }
+    }
+
+    private fun normalizeInput(raw: String): String {
+        val value = raw.trim()
+        if (value.isBlank()) return value
+
+        val parsed = Uri.parse(value)
+        return if (!parsed.scheme.isNullOrBlank()) value else "https://$value"
     }
 
     private fun playMedia(uri: Uri) {

@@ -2,11 +2,15 @@ package za.co.autovue
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -19,7 +23,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var address: EditText
     private lateinit var carStatus: TextView
+    private lateinit var mainUi: LinearLayout
+    private lateinit var fullscreenContainer: FrameLayout
+
     private var player: ExoPlayer? = null
+    private var fullscreenView: View? = null
+    private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
+
     private val homeUrl = "https://www.youtube.com/"
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -30,6 +40,8 @@ class MainActivity : AppCompatActivity() {
         address = findViewById(R.id.url)
         carStatus = findViewById(R.id.carStatus)
         web = findViewById(R.id.web)
+        mainUi = findViewById(R.id.mainUi)
+        fullscreenContainer = findViewById(R.id.fullscreenContainer)
 
         val playerView = findViewById<PlayerView>(R.id.player)
         player = ExoPlayer.Builder(this).build().also { playerView.player = it }
@@ -37,7 +49,33 @@ class MainActivity : AppCompatActivity() {
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.mediaPlaybackRequiresUserGesture = true
-        web.webChromeClient = WebChromeClient()
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowCustomView(
+                view: View?,
+                callback: CustomViewCallback?
+            ) {
+                if (view == null || fullscreenView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+
+                fullscreenView = view
+                fullscreenCallback = callback
+                mainUi.visibility = View.GONE
+                fullscreenContainer.visibility = View.VISIBLE
+                fullscreenContainer.addView(
+                    view,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+
+            override fun onHideCustomView() {
+                hideFullscreenVideo()
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 address.setText(url.orEmpty())
@@ -67,15 +105,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<android.view.View>(R.id.go).setOnClickListener { browse() }
-        findViewById<android.view.View>(R.id.home).setOnClickListener { web.loadUrl(homeUrl) }
-        findViewById<android.view.View>(R.id.back).setOnClickListener {
+        findViewById<View>(R.id.go).setOnClickListener { browse() }
+        findViewById<View>(R.id.home).setOnClickListener { web.loadUrl(homeUrl) }
+        findViewById<View>(R.id.back).setOnClickListener {
             if (web.canGoBack()) web.goBack()
         }
-        findViewById<android.view.View>(R.id.forward).setOnClickListener {
+        findViewById<View>(R.id.forward).setOnClickListener {
             if (web.canGoForward()) web.goForward()
         }
-        findViewById<android.view.View>(R.id.playDirect).setOnClickListener {
+        findViewById<View>(R.id.playDirect).setOnClickListener {
             val source = address.text.toString().trim()
             if (source.isNotEmpty()) {
                 player?.apply {
@@ -85,7 +123,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        findViewById<android.view.View>(R.id.saveForCar).setOnClickListener {
+        findViewById<View>(R.id.saveForCar).setOnClickListener {
             val source = address.text.toString().trim()
             if (source.isNotEmpty()) {
                 SavedMediaStore.save(this, normalizedUrl(source))
@@ -109,12 +147,26 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (web.canGoBack()) web.goBack() else finish()
+                when {
+                    fullscreenView != null -> hideFullscreenVideo()
+                    web.canGoBack() -> web.goBack()
+                    else -> finish()
+                }
             }
         })
 
         updateSavedStatus()
         if (savedInstanceState == null) web.loadUrl(homeUrl)
+    }
+
+    private fun hideFullscreenVideo() {
+        val view = fullscreenView ?: return
+        fullscreenContainer.removeView(view)
+        fullscreenContainer.visibility = View.GONE
+        mainUi.visibility = View.VISIBLE
+        fullscreenView = null
+        fullscreenCallback?.onCustomViewHidden()
+        fullscreenCallback = null
     }
 
     override fun onStop() {
@@ -123,6 +175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        hideFullscreenVideo()
         web.destroy()
         player?.release()
         player = null

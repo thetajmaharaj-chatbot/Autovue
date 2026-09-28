@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (_: SecurityException) {
-                    // Some providers grant access without persistable permissions.
+                    // Some document providers grant access without persistable permissions.
                 }
 
                 address.setText(uri.toString())
@@ -107,11 +107,7 @@ class MainActivity : AppCompatActivity() {
             if (value.isBlank()) return value
 
             val parsed = Uri.parse(value)
-            return if (!parsed.scheme.isNullOrBlank()) {
-                value
-            } else {
-                "https://$value"
-            }
+            return if (!parsed.scheme.isNullOrBlank()) value else "https://$value"
         }
 
         fun browse() {
@@ -120,12 +116,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun updateSavedStatus() {
-            val saved = SavedMediaStore.get(this)
-            carStatus.text = if (saved == null) {
-                "Android Auto audio: no saved stream"
-            } else {
-                "Android Auto audio: ${saved.title}"
-            }
+            val count = SavedMediaStore.all(this).size
+            carStatus.text = "Android Auto audio: $count saved"
         }
 
         findViewById<View>(R.id.go).setOnClickListener { browse() }
@@ -146,14 +138,30 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.saveForCar).setOnClickListener {
             val source = normalizedUri(address.text.toString())
             if (source.isNotEmpty()) {
+                val before = SavedMediaStore.all(this).size
                 SavedMediaStore.save(this, source)
+                val after = SavedMediaStore.all(this).size
                 updateSavedStatus()
+
                 Toast.makeText(
                     this,
-                    "Saved for Android Auto audio. Use a direct playable media URL or audio file.",
-                    Toast.LENGTH_LONG
+                    if (after > before) {
+                        "Added to Android Auto audio library."
+                    } else {
+                        "Already saved in Android Auto audio library."
+                    },
+                    Toast.LENGTH_SHORT
                 ).show()
             }
+        }
+        findViewById<View>(R.id.clearForCar).setOnClickListener {
+            SavedMediaStore.clear(this)
+            updateSavedStatus()
+            Toast.makeText(
+                this,
+                "Android Auto audio library cleared.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         address.setOnEditorActionListener { _, action, _ ->

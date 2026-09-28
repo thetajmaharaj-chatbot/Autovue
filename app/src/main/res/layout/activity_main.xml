@@ -99,10 +99,10 @@
                 android:textSize="12sp"/>
 
             <Button
-                android:id="@+id/clearForCar"
+                android:id="@+id/manageForCar"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Clear Auto"/>
+                android:text="Manage Auto"/>
         </LinearLayout>
 
         <androidx.media3.ui.PlayerView

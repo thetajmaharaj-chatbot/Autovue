@@ -1,13 +1,14 @@
 package za.co.autovue
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 
 object SavedMediaStore {
-    private const val PREFS = "autovue_media"
-    private const val KEY_URL = "saved_url"
+    const val PREFS_NAME = "autovue_media"
+    const val KEY_URL = "saved_url"
     private const val MEDIA_ID = "saved_audio"
 
     data class SavedMedia(
@@ -15,15 +16,18 @@ object SavedMediaStore {
         val title: String
     )
 
+    fun preferences(context: Context): SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
     fun save(context: Context, url: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        preferences(context)
             .edit()
             .putString(KEY_URL, url)
             .apply()
     }
 
     fun get(context: Context): SavedMedia? {
-        val url = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val url = preferences(context)
             .getString(KEY_URL, null)
             ?.trim()
             .orEmpty()
@@ -72,4 +76,20 @@ object SavedMediaStore {
             MEDIA_ID -> mediaItem(context)
             else -> null
         }
+
+    fun search(context: Context, query: String): List<MediaItem> {
+        val item = mediaItem(context) ?: return emptyList()
+        val saved = get(context) ?: return emptyList()
+        if (query.isBlank()) return listOf(item)
+
+        val needle = query.trim().lowercase()
+        return if (
+            saved.title.lowercase().contains(needle) ||
+            saved.url.lowercase().contains(needle)
+        ) {
+            listOf(item)
+        } else {
+            emptyList()
+        }
+    }
 }

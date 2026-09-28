@@ -17,6 +17,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -120,6 +121,40 @@ class MainActivity : AppCompatActivity() {
             carStatus.text = "Android Auto audio: $count saved"
         }
 
+        fun showSavedMediaManager() {
+            val saved = SavedMediaStore.all(this)
+            if (saved.isEmpty()) {
+                Toast.makeText(
+                    this,
+                    "No Android Auto audio has been saved yet.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
+
+            val labels = saved
+                .map { "${it.title}\n${it.url}" }
+                .toTypedArray()
+
+            AlertDialog.Builder(this)
+                .setTitle("Saved Android Auto audio")
+                .setItems(labels) { _, index ->
+                    SavedMediaStore.remove(this, saved[index].id)
+                    updateSavedStatus()
+                    Toast.makeText(
+                        this,
+                        "Removed ${saved[index].title}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                .setNeutralButton("Clear all") { _, _ ->
+                    SavedMediaStore.clear(this)
+                    updateSavedStatus()
+                }
+                .setNegativeButton("Close", null)
+                .show()
+        }
+
         findViewById<View>(R.id.go).setOnClickListener { browse() }
         findViewById<View>(R.id.home).setOnClickListener { web.loadUrl(homeUrl) }
         findViewById<View>(R.id.back).setOnClickListener {
@@ -154,14 +189,8 @@ class MainActivity : AppCompatActivity() {
                 ).show()
             }
         }
-        findViewById<View>(R.id.clearForCar).setOnClickListener {
-            SavedMediaStore.clear(this)
-            updateSavedStatus()
-            Toast.makeText(
-                this,
-                "Android Auto audio library cleared.",
-                Toast.LENGTH_SHORT
-            ).show()
+        findViewById<View>(R.id.manageForCar).setOnClickListener {
+            showSavedMediaManager()
         }
 
         address.setOnEditorActionListener { _, action, _ ->

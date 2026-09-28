@@ -35,6 +35,10 @@ object SavedMediaStore {
         write(context, items)
     }
 
+    fun remove(context: Context, id: String) {
+        write(context, all(context).filterNot { it.id == id })
+    }
+
     fun clear(context: Context) {
         preferences(context)
             .edit()

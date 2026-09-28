@@ -1,6 +1,8 @@
 package za.co.autovue
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -31,6 +34,23 @@ class MainActivity : AppCompatActivity() {
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
     private val homeUrl = "https://www.youtube.com/"
+
+    private val openDocument =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (_: SecurityException) {
+                    // Some providers grant access without persistable permissions.
+                }
+
+                address.setText(uri.toString())
+                playMedia(uri)
+            }
+        }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,9 +102,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun normalizedUrl(raw: String): String {
+        fun normalizedUri(raw: String): String {
             val value = raw.trim()
-            return if (value.startsWith("http://") || value.startsWith("https://")) {
+            if (value.isBlank()) return value
+
+            val parsed = Uri.parse(value)
+            return if (!parsed.scheme.isNullOrBlank()) {
                 value
             } else {
                 "https://$value"
@@ -92,8 +115,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun browse() {
-            val value = address.text.toString()
-            if (value.isNotBlank()) web.loadUrl(normalizedUrl(value))
+            val value = normalizedUri(address.text.toString())
+            if (value.isNotBlank()) web.loadUrl(value)
         }
 
         fun updateSavedStatus() {
@@ -114,23 +137,20 @@ class MainActivity : AppCompatActivity() {
             if (web.canGoForward()) web.goForward()
         }
         findViewById<View>(R.id.playDirect).setOnClickListener {
-            val source = address.text.toString().trim()
-            if (source.isNotEmpty()) {
-                player?.apply {
-                    setMediaItem(MediaItem.fromUri(normalizedUrl(source)))
-                    prepare()
-                    play()
-                }
-            }
+            val source = normalizedUri(address.text.toString())
+            if (source.isNotEmpty()) playMedia(Uri.parse(source))
+        }
+        findViewById<View>(R.id.openFile).setOnClickListener {
+            openDocument.launch(arrayOf("audio/*", "video/*"))
         }
         findViewById<View>(R.id.saveForCar).setOnClickListener {
-            val source = address.text.toString().trim()
+            val source = normalizedUri(address.text.toString())
             if (source.isNotEmpty()) {
-                SavedMediaStore.save(this, normalizedUrl(source))
+                SavedMediaStore.save(this, source)
                 updateSavedStatus()
                 Toast.makeText(
                     this,
-                    "Saved for Android Auto audio. Use a direct playable media URL.",
+                    "Saved for Android Auto audio. Use a direct playable media URL or audio file.",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -157,6 +177,14 @@ class MainActivity : AppCompatActivity() {
 
         updateSavedStatus()
         if (savedInstanceState == null) web.loadUrl(homeUrl)
+    }
+
+    private fun playMedia(uri: Uri) {
+        player?.apply {
+            setMediaItem(MediaItem.fromUri(uri))
+            prepare()
+            play()
+        }
     }
 
     private fun hideFullscreenVideo() {

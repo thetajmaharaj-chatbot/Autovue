@@ -1,5 +1,6 @@
 package za.co.autovue
 
+import android.content.SharedPreferences
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.LibraryResult
@@ -15,6 +16,19 @@ import com.google.common.util.concurrent.ListenableFuture
 class AutoVueMediaService : MediaLibraryService() {
     private var mediaLibrarySession: MediaLibrarySession? = null
 
+    private val preferenceListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == SavedMediaStore.KEY_URL) {
+                val itemCount =
+                    if (SavedMediaStore.mediaItem(this) == null) 0 else 1
+                mediaLibrarySession?.notifyChildrenChanged(
+                    ROOT_ID,
+                    itemCount,
+                    null
+                )
+            }
+        }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -24,6 +38,9 @@ class AutoVueMediaService : MediaLibraryService() {
             player,
             LibraryCallback()
         ).build()
+
+        SavedMediaStore.preferences(this)
+            .registerOnSharedPreferenceChangeListener(preferenceListener)
     }
 
     override fun onGetSession(
@@ -31,6 +48,9 @@ class AutoVueMediaService : MediaLibraryService() {
     ): MediaLibrarySession? = mediaLibrarySession
 
     override fun onDestroy() {
+        SavedMediaStore.preferences(this)
+            .unregisterOnSharedPreferenceChangeListener(preferenceListener)
+
         mediaLibrarySession?.run {
             player.release()
             release()
@@ -80,6 +100,37 @@ class AutoVueMediaService : MediaLibraryService() {
 
             return Futures.immediateFuture(
                 LibraryResult.ofItemList(ImmutableList.copyOf(items), params)
+            )
+        }
+
+        override fun onSearch(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<Void>> {
+            val matches = SavedMediaStore.search(this@AutoVueMediaService, query)
+            session.notifySearchResultChanged(
+                browser,
+                query,
+                matches.size,
+                params
+            )
+            return Futures.immediateFuture(LibraryResult.ofVoid())
+        }
+
+        override fun onGetSearchResult(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            val matches = SavedMediaStore.search(this@AutoVueMediaService, query)
+                .take(pageSize)
+            return Futures.immediateFuture(
+                LibraryResult.ofItemList(ImmutableList.copyOf(matches), params)
             )
         }
 

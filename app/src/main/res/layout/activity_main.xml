@@ -70,6 +70,13 @@
                 android:text="Play direct media"/>
 
             <Button
+                android:id="@+id/openFile"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="Open file"/>
+
+            <Button
                 android:id="@+id/saveForCar"
                 android:layout_width="0dp"
                 android:layout_weight="1"

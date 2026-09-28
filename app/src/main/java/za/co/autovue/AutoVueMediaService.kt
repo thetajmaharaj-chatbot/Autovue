@@ -99,7 +99,10 @@ class AutoVueMediaService : MediaLibraryService() {
             }
 
             return Futures.immediateFuture(
-                LibraryResult.ofItemList(ImmutableList.copyOf(items), params)
+                LibraryResult.ofItemList(
+                    ImmutableList.copyOf(items.drop(page * pageSize).take(pageSize)),
+                    params
+                )
             )
         }
 
@@ -128,7 +131,9 @@ class AutoVueMediaService : MediaLibraryService() {
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
             val matches = SavedMediaStore.search(this@AutoVueMediaService, query)
+                .drop(page * pageSize)
                 .take(pageSize)
+
             return Futures.immediateFuture(
                 LibraryResult.ofItemList(ImmutableList.copyOf(matches), params)
             )
@@ -139,11 +144,11 @@ class AutoVueMediaService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
             mediaItems: List<MediaItem>
         ): ListenableFuture<List<MediaItem>> {
-            val resolved = mediaItems.mapNotNull { requested ->
+            val resolved = mediaItems.map { requested ->
                 SavedMediaStore.resolve(
                     this@AutoVueMediaService,
                     requested.mediaId
-                ) ?: requested.takeIf { it.localConfiguration != null }
+                ) ?: requested
             }
             return Futures.immediateFuture(resolved)
         }

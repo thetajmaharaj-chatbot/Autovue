@@ -7,6 +7,8 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
@@ -16,6 +18,7 @@ import androidx.media3.ui.PlayerView
 class MainActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var address: EditText
+    private lateinit var carStatus: TextView
     private var player: ExoPlayer? = null
     private val homeUrl = "https://www.youtube.com/"
 
@@ -25,7 +28,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         address = findViewById(R.id.url)
+        carStatus = findViewById(R.id.carStatus)
         web = findViewById(R.id.web)
+
         val playerView = findViewById<PlayerView>(R.id.player)
         player = ExoPlayer.Builder(this).build().also { playerView.player = it }
 
@@ -41,33 +46,74 @@ class MainActivity : AppCompatActivity() {
 
         fun normalizedUrl(raw: String): String {
             val value = raw.trim()
-            return if (value.startsWith("http://") || value.startsWith("https://")) value
-            else "https://$value"
+            return if (value.startsWith("http://") || value.startsWith("https://")) {
+                value
+            } else {
+                "https://$value"
+            }
         }
+
         fun browse() {
             val value = address.text.toString()
             if (value.isNotBlank()) web.loadUrl(normalizedUrl(value))
         }
-        findViewById<android.view.View>(R.id.go).setOnClickListener { browse() }
-        findViewById<android.view.View>(R.id.home).setOnClickListener { web.loadUrl(homeUrl) }
-        findViewById<android.view.View>(R.id.back).setOnClickListener { if (web.canGoBack()) web.goBack() }
-        findViewById<android.view.View>(R.id.forward).setOnClickListener { if (web.canGoForward()) web.goForward() }
-        findViewById<android.view.View>(R.id.playDirect).setOnClickListener {
-            val source = address.text.toString().trim()
-            if (source.isNotEmpty()) player?.apply {
-                setMediaItem(MediaItem.fromUri(normalizedUrl(source)))
-                prepare()
-                play()
+
+        fun updateSavedStatus() {
+            val saved = SavedMediaStore.get(this)
+            carStatus.text = if (saved == null) {
+                "Android Auto audio: no saved stream"
+            } else {
+                "Android Auto audio: ${saved.title}"
             }
         }
-        address.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_GO) { browse(); true } else false
+
+        findViewById<android.view.View>(R.id.go).setOnClickListener { browse() }
+        findViewById<android.view.View>(R.id.home).setOnClickListener { web.loadUrl(homeUrl) }
+        findViewById<android.view.View>(R.id.back).setOnClickListener {
+            if (web.canGoBack()) web.goBack()
         }
+        findViewById<android.view.View>(R.id.forward).setOnClickListener {
+            if (web.canGoForward()) web.goForward()
+        }
+        findViewById<android.view.View>(R.id.playDirect).setOnClickListener {
+            val source = address.text.toString().trim()
+            if (source.isNotEmpty()) {
+                player?.apply {
+                    setMediaItem(MediaItem.fromUri(normalizedUrl(source)))
+                    prepare()
+                    play()
+                }
+            }
+        }
+        findViewById<android.view.View>(R.id.saveForCar).setOnClickListener {
+            val source = address.text.toString().trim()
+            if (source.isNotEmpty()) {
+                SavedMediaStore.save(this, normalizedUrl(source))
+                updateSavedStatus()
+                Toast.makeText(
+                    this,
+                    "Saved for Android Auto audio. Use a direct playable media URL.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+        address.setOnEditorActionListener { _, action, _ ->
+            if (action == EditorInfo.IME_ACTION_GO) {
+                browse()
+                true
+            } else {
+                false
+            }
+        }
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (web.canGoBack()) web.goBack() else finish()
             }
         })
+
+        updateSavedStatus()
         if (savedInstanceState == null) web.loadUrl(homeUrl)
     }
 

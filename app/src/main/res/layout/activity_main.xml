@@ -1,14 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="16dp">
+    android:orientation="vertical" android:padding="12dp">
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="AutoVue" android:textSize="28sp" android:textStyle="bold"/>
-    <EditText android:id="@+id/url" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:hint="Media URL" android:inputType="textUri"/>
-    <Button android:id="@+id/play" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:text="Play media"/>
+        android:text="AutoVue" android:textSize="26sp" android:textStyle="bold"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button android:id="@+id/back" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="‹"/>
+        <Button android:id="@+id/forward" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›"/>
+        <Button android:id="@+id/home" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Home"/>
+        <EditText android:id="@+id/url" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:singleLine="true" android:hint="Web or direct media URL"
+            android:inputType="textUri"/>
+        <Button android:id="@+id/go" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Go"/>
+    </LinearLayout>
+    <Button android:id="@+id/playDirect" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="Play direct media URL"/>
     <androidx.media3.ui.PlayerView android:id="@+id/player"
-        android:layout_width="match_parent" android:layout_height="0dp"
-        android:layout_weight="1"/>
+        android:layout_width="match_parent" android:layout_height="220dp"/>
+    <WebView android:id="@+id/web" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1"/>
 </LinearLayout>

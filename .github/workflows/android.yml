@@ -2,10 +2,12 @@ name: Android APK
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-apk-${{ github.ref }}
@@ -15,6 +17,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +33,24 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
+      - name: Prepare installable APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk AutoVue.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: autovue-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: AutoVue-apk
+          path: AutoVue.apk
           if-no-files-found: error
+
+      - name: Publish rolling GitHub release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: autovue-latest
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" AutoVue.apk --clobber
+            gh release edit "$TAG"               --title "AutoVue Latest Test Build"               --notes "Latest installable AutoVue APK built from main. Android 16 target with phone media/browser features and supported Android Auto Media3 audio integration."
+          else
+            gh release create "$TAG" AutoVue.apk               --target "$GITHUB_SHA"               --title "AutoVue Latest Test Build"               --notes "Latest installable AutoVue APK built from main. Android 16 target with phone media/browser features and supported Android Auto Media3 audio integration."
+          fi

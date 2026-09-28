@@ -18,12 +18,10 @@ class AutoVueMediaService : MediaLibraryService() {
 
     private val preferenceListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == SavedMediaStore.KEY_URL) {
-                val itemCount =
-                    if (SavedMediaStore.mediaItem(this) == null) 0 else 1
+            if (key == SavedMediaStore.KEY_ITEMS || key == SavedMediaStore.KEY_URL) {
                 mediaLibrarySession?.notifyChildrenChanged(
                     ROOT_ID,
-                    itemCount,
+                    SavedMediaStore.all(this).size,
                     null
                 )
             }
@@ -93,14 +91,18 @@ class AutoVueMediaService : MediaLibraryService() {
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
             val items = if (parentId == ROOT_ID) {
-                listOfNotNull(SavedMediaStore.mediaItem(this@AutoVueMediaService))
+                SavedMediaStore.mediaItems(this@AutoVueMediaService)
             } else {
                 emptyList()
             }
 
+            val pageItems = items
+                .drop(page * pageSize)
+                .take(pageSize)
+
             return Futures.immediateFuture(
                 LibraryResult.ofItemList(
-                    ImmutableList.copyOf(items.drop(page * pageSize).take(pageSize)),
+                    ImmutableList.copyOf(pageItems),
                     params
                 )
             )
